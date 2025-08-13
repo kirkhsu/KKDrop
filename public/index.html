@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>檔案傳輸系統</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .clients-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 10px;
+        }
+        .client-card {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .client-card:hover {
+            background: #e3f2fd;
+            transform: translateY(-2px);
+        }
+        .client-card.selected {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
+        }
+        .target-selection {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+        .upload-area {
+            border: 2px dashed #007bff;
+            padding: 30px;
+            text-align: center;
+            border-radius: 5px;
+            background: #f8f9fa;
+            margin-top: 10px;
+        }
+        .upload-area.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .file-input {
+            margin: 10px 0;
+        }
+        .upload-btn {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .upload-btn:hover {
+            background: #0056b3;
+        }
+        .upload-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .file-list {
+            margin-top: 20px;
+        }
+        .file-item {
+            background: #e9ecef;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 3px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .online {
+            background: #d4edda;
+            color: #155724;
+        }
+        .offline {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .received {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .sent {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>檔案傳輸系統</h1>
+        
+        <div class="section">
+            <h2>我的資訊</h2>
+            <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; border-left: 4px solid #28a745;">
+                <div style="margin-bottom: 5px;">
+                    <strong>我的用戶ID：</strong><span id="myUserId">連接中...</span>
+                </div>
+                <div>
+                    <strong>連線URL：</strong><span id="connectionUrl">載入中...</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>連線用戶 (<span id="clientCount">0</span>)</h2>
+            <div id="clientsList" class="clients-grid">
+                <!-- 用戶列表將在這裡顯示 -->
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>檔案傳送</h2>
+            <div class="target-selection">
+                <strong>選擇目標用戶：</strong>
+                <span id="selectedTarget">尚未選擇</span>
+                <button id="clearSelection" style="margin-left: 10px; padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">清除選擇</button>
+            </div>
+            <div id="uploadArea" class="upload-area disabled">
+                <p>請先選擇目標用戶，然後拖拽檔案到此處或點擊選擇檔案</p>
+                <input type="file" id="fileInput" class="file-input" multiple disabled>
+                <br>
+                <button id="uploadBtn" class="upload-btn" disabled>傳送檔案</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>傳送紀錄</h2>
+            <div id="fileList" class="file-list">
+                <!-- 檔案列表將在這裡顯示 -->
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>接收紀錄</h2>
+            <div id="receivedFileList" class="file-list">
+                <!-- 接收到的檔案列表將在這裡顯示 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const clientsList = document.getElementById('clientsList');
+        const clientCount = document.getElementById('clientCount');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const fileList = document.getElementById('fileList');
+        const receivedFileList = document.getElementById('receivedFileList');
+        const selectedTarget = document.getElementById('selectedTarget');
+        const clearSelection = document.getElementById('clearSelection');
+        const uploadArea = document.getElementById('uploadArea');
+        const myUserId = document.getElementById('myUserId');
+        const connectionUrl = document.getElementById('connectionUrl');
+        
+        let sentFiles = [];
+        let receivedFiles = [];
+        let currentTarget = null;
+        let mySocketId = null;
+
+        socket.on('clientsUpdate', (data) => {
+            const { clients, yourId, serverURL } = data;
+            mySocketId = yourId;
+            
+            // 更新我的用戶ID和連線URL顯示
+            if (yourId) {
+                myUserId.textContent = `用戶 ${yourId.substring(0, 8)}`;
+            }
+            if (serverURL) {
+                connectionUrl.textContent = serverURL;
+            }
+            
+            // 只過濾掉自己
+            const otherClients = clients.filter(client => client.id !== yourId);
+            clientCount.textContent = otherClients.length;
+            
+            clientsList.innerHTML = '';
+            if (otherClients.length === 0) {
+                clientsList.innerHTML = '<p style="text-align: center; color: #666;">目前沒有其他用戶在線</p>';
+            } else {
+                otherClients.forEach(client => {
+                    const clientCard = document.createElement('div');
+                    clientCard.className = 'client-card';
+                    clientCard.dataset.clientId = client.id;
+                    
+                    if (currentTarget === client.id) {
+                        clientCard.classList.add('selected');
+                    }
+                    
+                    clientCard.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong>用戶 ${client.id.substring(0, 8)}</strong>
+                            <span class="status online">線上</span>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 14px; color: #666;">
+                            <div>IP: ${client.ip}</div>
+                            <div>連線時間: ${new Date(client.connectTime).toLocaleString('zh-TW')}</div>
+                        </div>
+                    `;
+                    
+                    clientCard.addEventListener('click', () => {
+                        selectTarget(client.id, client.id.substring(0, 8));
+                    });
+                    
+                    clientsList.appendChild(clientCard);
+                });
+            }
+        });
+
+        socket.on('fileReceived', (fileInfo) => {
+            receivedFiles.push(fileInfo);
+            updateReceivedFileList();
+            showNotification(`收到來自用戶 ${fileInfo.from.substring(0, 8)} 的檔案: ${fileInfo.originalname}`);
+            
+            // 詢問使用者是否要下載檔案
+            if (confirm(`收到檔案 "${fileInfo.originalname}"，是否要下載到您的電腦？`)) {
+                downloadFile(fileInfo.originalname, fileInfo.originalname);
+            }
+        });
+
+        function selectTarget(clientId, clientName) {
+            currentTarget = clientId;
+            selectedTarget.textContent = `用戶 ${clientName}`;
+            
+            document.querySelectorAll('.client-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            document.querySelector(`[data-client-id="${clientId}"]`).classList.add('selected');
+            
+            uploadArea.classList.remove('disabled');
+            fileInput.disabled = false;
+            uploadBtn.disabled = false;
+        }
+
+        clearSelection.addEventListener('click', () => {
+            currentTarget = null;
+            selectedTarget.textContent = '尚未選擇';
+            
+            document.querySelectorAll('.client-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            uploadArea.classList.add('disabled');
+            fileInput.disabled = true;
+            uploadBtn.disabled = true;
+        });
+
+        function updateSentFileList() {
+            fileList.innerHTML = '';
+            if (sentFiles.length === 0) {
+                fileList.innerHTML = '<p style="text-align: center; color: #666;">尚未傳送任何檔案</p>';
+            } else {
+                sentFiles.forEach(file => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    fileItem.innerHTML = `
+                        <div>
+                            <strong>${file.originalname}</strong>
+                            <div style="font-size: 12px; color: #666;">
+                                大小: ${(file.size / 1024).toFixed(2)} KB | 
+                                傳送給: 用戶 ${file.to.substring(0, 8)} | 
+                                傳送時間: ${new Date(file.uploadTime).toLocaleString('zh-TW')}
+                            </div>
+                        </div>
+                        <div class="status sent">已傳送</div>
+                    `;
+                    fileList.appendChild(fileItem);
+                });
+            }
+        }
+
+        function updateReceivedFileList() {
+            receivedFileList.innerHTML = '';
+            if (receivedFiles.length === 0) {
+                receivedFileList.innerHTML = '<p style="text-align: center; color: #666;">尚未接收任何檔案</p>';
+            } else {
+                receivedFiles.forEach(file => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    fileItem.innerHTML = `
+                        <div>
+                            <strong>${file.originalname}</strong>
+                            <div style="font-size: 12px; color: #666;">
+                                大小: ${(file.size / 1024).toFixed(2)} KB | 
+                                來自: 用戶 ${file.from.substring(0, 8)} | 
+                                接收時間: ${new Date(file.uploadTime).toLocaleString('zh-TW')}
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <div class="status received">已接收</div>
+                            <button onclick="downloadFile('${file.originalname}', '${file.originalname}')" 
+                                    style="padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;">
+                                下載
+                            </button>
+                        </div>
+                    `;
+                    receivedFileList.appendChild(fileItem);
+                });
+            }
+        }
+
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        function downloadFile(filename, originalname) {
+            const link = document.createElement('a');
+            link.href = `/download/${filename}`;
+            link.download = originalname;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        uploadBtn.addEventListener('click', () => {
+            if (!currentTarget) {
+                alert('請先選擇目標用戶');
+                return;
+            }
+            
+            const files = fileInput.files;
+            if (files.length === 0) {
+                alert('請選擇要傳送的檔案');
+                return;
+            }
+
+            Array.from(files).forEach(file => {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('targetClient', currentTarget);
+                formData.append('fromClient', mySocketId);
+
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('檔案傳送成功:', data);
+                    sentFiles.push(data.file);
+                    updateSentFileList();
+                    showNotification(`檔案 ${data.file.originalname} 已成功傳送`);
+                })
+                .catch(error => {
+                    console.error('傳送錯誤:', error);
+                    alert('檔案傳送失敗');
+                });
+            });
+
+            fileInput.value = '';
+        });
+
+        // 拖拽上傳功能
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (!uploadArea.classList.contains('disabled')) {
+                uploadArea.style.backgroundColor = '#e3f2fd';
+            }
+        });
+        
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadArea.style.backgroundColor = '#f8f9fa';
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.backgroundColor = '#f8f9fa';
+            
+            if (!uploadArea.classList.contains('disabled')) {
+                const files = e.dataTransfer.files;
+                fileInput.files = files;
+            }
+        });
+
+        uploadArea.addEventListener('click', (e) => {
+            // 避免點擊上傳按鈕或檔案輸入框時觸發檔案選擇
+            if (e.target === uploadBtn || 
+                e.target.closest('#uploadBtn') || 
+                e.target === fileInput ||
+                e.target.closest('#fileInput')) {
+                return;
+            }
+            
+            if (!uploadArea.classList.contains('disabled')) {
+                e.preventDefault();
+                fileInput.click();
+            }
+        });
+        
+        // 為檔案輸入框添加事件監聽器防止事件冒泡
+        fileInput.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        updateSentFileList();
+        updateReceivedFileList();
+    </script>
+</body>
+</html>

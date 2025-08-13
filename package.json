@@ -1,0 +1,29 @@
+{
+  "name": "KKDrop",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0",
+    "multer": "^2.0.2",
+    "socket.io": "^4.8.1"
+  },
+  "pkg": {
+    "assets": [
+      "public/**/*"
+    ],
+    "targets": [
+      "node*-linux-x64", "node*-win-x64", "node*-macos-x64"
+    ],
+    "outputPath": "dist"
+  },
+  "bin": "server.js"
+}
