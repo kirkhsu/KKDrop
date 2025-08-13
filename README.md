@@ -2,6 +2,10 @@
 
 Like Snapdrop
 
+### 安裝 ###
+
+* npm install
+
 ### 啟動 ###
 
 * npm start
