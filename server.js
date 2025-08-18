@@ -59,8 +59,8 @@ app.get('/', (req, res) => {
 app.get('/download/:filename', (req, res) => {
     const filename = req.params.filename;
     
-    // 防止路徑遍歷攻擊
-    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+    // 防止路徑遍歷攻擊 - 跨平台兼容
+    if (filename.includes('..') || filename.includes(path.sep) || filename !== path.basename(filename)) {
         return res.status(400).json({ error: 'Invalid filename' });
     }
     
