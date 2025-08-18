@@ -28,13 +28,16 @@ function getLocalIP() {
 
 const localIP = getLocalIP();
 
-if (!fs.existsSync('uploads')) {
-    fs.mkdirSync('uploads');
+// 確定上傳目錄路徑 - 在 pkg 打包環境中使用執行目錄
+const uploadsDir = path.join(process.cwd(), 'uploads');
+
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, 'uploads/');
+        cb(null, uploadsDir);
     },
     filename: function (req, file, cb) {
         cb(null, file.originalname);
@@ -43,21 +46,38 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-app.use(express.static('public'));
+// 處理 static 文件 - 支援 pkg 打包
+const publicDir = path.join(__dirname, 'public');
+app.use(express.static(publicDir));
 
 let connectedClients = [];
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(publicDir, 'index.html'));
 });
 
 app.get('/download/:filename', (req, res) => {
     const filename = req.params.filename;
-    const filePath = path.join(__dirname, 'uploads', filename);
+    
+    // 防止路徑遍歷攻擊
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+        return res.status(400).json({ error: 'Invalid filename' });
+    }
+    
+    const filePath = path.join(uploadsDir, filename);
+    console.log(`Attempting to download file: ${filePath}`);
+    console.log(`Uploads directory: ${uploadsDir}`);
+    console.log(`File exists: ${fs.existsSync(filePath)}`);
     
     if (fs.existsSync(filePath)) {
-        res.download(filePath);
+        res.download(filePath, filename, (err) => {
+            if (err) {
+                console.error('Download error:', err);
+                res.status(500).json({ error: 'Download failed' });
+            }
+        });
     } else {
+        console.log(`File not found: ${filePath}`);
         res.status(404).json({ error: 'File not found' });
     }
 });
@@ -150,4 +170,8 @@ server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Local access: http://localhost:${PORT}`);
     console.log(`Network access: http://${localIP}:${PORT}`);
+    console.log(`Uploads directory: ${uploadsDir}`);
+    console.log(`Public directory: ${publicDir}`);
+    console.log(`Current working directory: ${process.cwd()}`);
+    console.log(`__dirname: ${__dirname}`);
 });
