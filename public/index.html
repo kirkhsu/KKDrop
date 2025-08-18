@@ -160,11 +160,14 @@
         let sentFiles = [];
         let receivedFiles = [];
 
+        let myId = null;
+
         socket.on('clientsUpdate', (data) => {
             const { clients, yourId, serverURL } = data;
             
             // 更新我的用戶ID和連線URL顯示
             if (yourId) {
+                myId = yourId;
                 myUserId.textContent = `用戶 ${yourId.substring(0, 8)}`;
             }
             if (serverURL) {
@@ -172,7 +175,7 @@
             }
             
             // 只過濾掉自己
-            const otherClients = clients.filter(client => client.id !== yourId);
+            const otherClients = clients.filter(client => client.id !== myId);
             clientCount.textContent = otherClients.length;
             
             clientsList.innerHTML = '';

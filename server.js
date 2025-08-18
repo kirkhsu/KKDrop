@@ -92,10 +92,20 @@ app.post('/upload', upload.single('file'), (req, res) => {
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
     
+    // Extract IPv4 address from IPv6-mapped format
+    let clientIP = socket.handshake.address;
+    if (clientIP.startsWith('::ffff:')) {
+        clientIP = clientIP.substring(7);
+    }
+
+    if(clientIP == "127.0.0.1"){
+        clientIP = localIP;
+    }
+    
     const client = {
         id: socket.id,
         connectTime: new Date().toISOString(),
-        ip: socket.handshake.address
+        ip: clientIP
     };
     
     connectedClients.push(client);
