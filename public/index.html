@@ -107,6 +107,91 @@
                 opacity: 1;
             }
         }
+        .message-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        .message-dialog {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 500px;
+            min-width: 300px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            animation: messageSlideIn 0.3s ease;
+        }
+        @keyframes messageSlideIn {
+            from {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        .message-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .message-content {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+        }
+        .message-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        .btn-copy {
+            background: #28a745;
+            color: white;
+        }
+        .btn-copy:hover {
+            background: #1e7e34;
+        }
     </style>
 </head>
 <body>
@@ -227,7 +312,7 @@
 
         socket.on('messageReceived', (messageInfo) => {
             showNotification(`收到來自用戶 ${messageInfo.from.substring(0, 8)} 的訊息`);
-            alert(`來自用戶 ${messageInfo.from.substring(0, 8)} 的訊息:\n\n${messageInfo.message}`);
+            showMessageDialog(messageInfo.message, messageInfo.from.substring(0, 8));
         });
 
 
@@ -364,6 +449,93 @@
             });
             
             showNotification(`訊息已傳送給用戶 ${targetClientName}`);
+        }
+
+        function showMessageDialog(message, fromUser) {
+            // 創建覆蓋層
+            const overlay = document.createElement('div');
+            overlay.className = 'message-overlay';
+            
+            // 創建對話框
+            const dialog = document.createElement('div');
+            dialog.className = 'message-dialog';
+            
+            // 創建標題
+            const header = document.createElement('div');
+            header.className = 'message-header';
+            header.textContent = `來自用戶 ${fromUser} 的訊息`;
+            
+            // 創建訊息內容
+            const content = document.createElement('div');
+            content.className = 'message-content';
+            content.textContent = message;
+            
+            // 創建按鈕區域
+            const actions = document.createElement('div');
+            actions.className = 'message-actions';
+            
+            // 創建複製按鈕
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'btn btn-copy';
+            copyBtn.textContent = '複製到剪貼簿';
+            copyBtn.addEventListener('click', () => {
+                copyMessageToClipboard(message);
+            });
+            
+            // 創建確定按鈕
+            const okBtn = document.createElement('button');
+            okBtn.className = 'btn btn-primary';
+            okBtn.textContent = '確定';
+            okBtn.addEventListener('click', closeMessageDialog);
+            
+            actions.appendChild(copyBtn);
+            actions.appendChild(okBtn);
+            
+            dialog.appendChild(header);
+            dialog.appendChild(content);
+            dialog.appendChild(actions);
+            
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+            
+            // 點擊覆蓋層外部關閉對話框
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    closeMessageDialog();
+                }
+            });
+            
+            // ESC 鍵關閉對話框
+            document.addEventListener('keydown', function handleEsc(e) {
+                if (e.key === 'Escape') {
+                    closeMessageDialog();
+                    document.removeEventListener('keydown', handleEsc);
+                }
+            });
+        }
+
+        function closeMessageDialog() {
+            const overlay = document.querySelector('.message-overlay');
+            if (overlay) {
+                overlay.remove();
+            }
+        }
+
+        function copyMessageToClipboard(message) {
+            navigator.clipboard.writeText(message).then(() => {
+                showNotification('訊息已複製到剪貼簿');
+                closeMessageDialog();
+            }).catch(() => {
+                // 備用方法：使用 textarea
+                const textarea = document.createElement('textarea');
+                textarea.value = message;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showNotification('訊息已複製到剪貼簿');
+                closeMessageDialog();
+            });
         }
 
 
