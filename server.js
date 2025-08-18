@@ -111,6 +111,20 @@ io.on('connection', (socket) => {
         serverURL: `http://${localIP}:${PORT}`
     });
     
+    socket.on('sendMessage', (data) => {
+        const { message, targetClient, fromClient } = data;
+        
+        const messageInfo = {
+            message: message,
+            from: fromClient,
+            to: targetClient,
+            timestamp: new Date().toISOString()
+        };
+        
+        io.to(targetClient).emit('messageReceived', messageInfo);
+        console.log(`Message sent from ${fromClient} to ${targetClient}: ${message}`);
+    });
+
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
         connectedClients = connectedClients.filter(client => client.id !== socket.id);

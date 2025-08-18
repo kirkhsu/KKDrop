@@ -258,8 +258,14 @@
                         </div>
                     `;
                     
-                    clientCard.addEventListener('click', () => {
-                        selectTarget(client.id, client.id.substring(0, 8));
+                    clientCard.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        openFileDialog(client.id, client.id.substring(0, 8));
+                    });
+                    
+                    clientCard.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        openTextDialog(client.id, client.id.substring(0, 8));
                     });
                     
                     clientsList.appendChild(clientCard);
@@ -276,6 +282,11 @@
             if (confirm(`收到檔案 "${fileInfo.originalname}"，是否要下載到您的電腦？`)) {
                 downloadFile(fileInfo.originalname, fileInfo.originalname);
             }
+        });
+
+        socket.on('messageReceived', (messageInfo) => {
+            showNotification(`收到來自用戶 ${messageInfo.from.substring(0, 8)} 的訊息`);
+            alert(`來自用戶 ${messageInfo.from.substring(0, 8)} 的訊息:\n\n${messageInfo.message}`);
         });
 
         function selectTarget(clientId, clientName) {
@@ -378,6 +389,66 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }
+
+        function openFileDialog(clientId, clientName) {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.multiple = true;
+            fileInput.style.display = 'none';
+            
+            fileInput.addEventListener('change', (e) => {
+                const files = e.target.files;
+                if (files.length > 0) {
+                    Array.from(files).forEach(file => {
+                        sendFileToUser(file, clientId);
+                    });
+                }
+                document.body.removeChild(fileInput);
+            });
+            
+            document.body.appendChild(fileInput);
+            fileInput.click();
+        }
+
+        function openTextDialog(clientId, clientName) {
+            const message = prompt(`傳送訊息給用戶 ${clientName}:`);
+            if (message && message.trim()) {
+                sendTextToUser(message.trim(), clientId, clientName);
+            }
+        }
+
+        function sendFileToUser(file, targetClientId) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('targetClient', targetClientId);
+            formData.append('fromClient', socket.id);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('檔案傳送成功:', data);
+                sentFiles.push(data.file);
+                updateSentFileList();
+                showNotification(`檔案 ${data.file.originalname} 已成功傳送給用戶 ${targetClientId.substring(0, 8)}`);
+            })
+            .catch(error => {
+                console.error('傳送錯誤:', error);
+                alert('檔案傳送失敗');
+            });
+        }
+
+        function sendTextToUser(message, targetClientId, targetClientName) {
+            socket.emit('sendMessage', {
+                message: message,
+                targetClient: targetClientId,
+                fromClient: socket.id
+            });
+            
+            showNotification(`訊息已傳送給用戶 ${targetClientName}`);
         }
 
         uploadBtn.addEventListener('click', () => {
