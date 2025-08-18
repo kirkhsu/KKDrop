@@ -522,20 +522,51 @@
         }
 
         function copyMessageToClipboard(message) {
-            navigator.clipboard.writeText(message).then(() => {
-                showNotification('訊息已複製到剪貼簿');
-                closeMessageDialog();
-            }).catch(() => {
-                // 備用方法：使用 textarea
-                const textarea = document.createElement('textarea');
-                textarea.value = message;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-                showNotification('訊息已複製到剪貼簿');
-                closeMessageDialog();
-            });
+            console.log('Attempting to copy message:', message);
+            
+            // 檢查是否支持 navigator.clipboard
+            if (navigator.clipboard && window.isSecureContext) {
+                console.log('Using navigator.clipboard API');
+                navigator.clipboard.writeText(message).then(() => {
+                    console.log('Copy successful via clipboard API');
+                    showNotification('訊息已複製到剪貼簿');
+                    closeMessageDialog();
+                }).catch((err) => {
+                    console.error('Clipboard API failed:', err);
+                    fallbackCopyTextToClipboard(message);
+                });
+            } else {
+                console.log('Clipboard API not available, using fallback');
+                fallbackCopyTextToClipboard(message);
+            }
+        }
+
+        function fallbackCopyTextToClipboard(text) {
+            console.log('Using fallback copy method');
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-999999px';
+            textarea.style.top = '-999999px';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                console.log('Fallback copy result:', successful);
+                if (successful) {
+                    showNotification('訊息已複製到剪貼簿');
+                } else {
+                    showNotification('複製失敗，請手動選擇並複製');
+                }
+            } catch (err) {
+                console.error('Fallback copy failed:', err);
+                showNotification('複製失敗，請手動選擇並複製');
+            }
+            
+            document.body.removeChild(textarea);
+            closeMessageDialog();
         }
 
 
