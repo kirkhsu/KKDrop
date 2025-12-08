@@ -192,6 +192,35 @@
         .btn-copy:hover {
             background: #1e7e34;
         }
+        .upload-progress {
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .progress-shell {
+            position: relative;
+            width: 200px;
+            height: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 6px;
+        }
+        .progress-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: linear-gradient(90deg, #007bff, #17a2b8);
+            width: 0%;
+            transition: width 0.2s ease;
+        }
+        .progress-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #555;
+        }
     </style>
 </head>
 <body>
@@ -424,21 +453,44 @@
             formData.append('targetClient', targetClientId);
             formData.append('fromClient', socket.id);
 
-            fetch('/upload', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('檔案傳送成功:', data);
-                sentFiles.push(data.file);
-                updateSentFileList();
-                showNotification(`檔案 ${data.file.originalname} 已成功傳送給用戶 ${targetClientId.substring(0, 8)}`);
-            })
-            .catch(error => {
-                console.error('傳送錯誤:', error);
-                alert('檔案傳送失敗');
-            });
+            const progressTracker = createUploadProgressItem(file, targetClientId);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/upload');
+
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percent = Math.round((event.loaded / event.total) * 100);
+                    progressTracker.update(percent);
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        progressTracker.update(100);
+                        progressTracker.setStatus('上傳完成');
+                        progressTracker.remove();
+                        sentFiles.push(data.file);
+                        updateSentFileList();
+                        showNotification(`檔案 ${data.file.originalname} 已成功傳送給用戶 ${targetClientId.substring(0, 8)}`);
+                    } catch (err) {
+                        console.error('回應解析失敗:', err);
+                        progressTracker.setStatus('回應解析失敗');
+                    }
+                } else {
+                    console.error('傳送失敗，狀態碼:', xhr.status);
+                    progressTracker.setStatus('上傳失敗');
+                }
+            };
+
+            xhr.onerror = () => {
+                console.error('傳送錯誤');
+                progressTracker.setStatus('上傳錯誤');
+            };
+
+            xhr.send(formData);
         }
 
         function sendTextToUser(message, targetClientId, targetClientName) {
@@ -572,6 +624,59 @@
 
         updateSentFileList();
         updateReceivedFileList();
+
+        function createUploadProgressItem(file, targetClientId) {
+            const uploadItem = document.createElement('div');
+            uploadItem.className = 'file-item upload-progress';
+
+            const info = document.createElement('div');
+            info.innerHTML = `
+                <strong>正在傳送: ${file.name}</strong>
+                <div style="font-size: 12px; color: #666;">
+                    大小: ${(file.size / 1024).toFixed(2)} KB | 目標: 用戶 ${targetClientId.substring(0, 8)}
+                </div>
+            `;
+
+            const meta = document.createElement('div');
+            meta.className = 'progress-meta';
+            const status = document.createElement('span');
+            status.textContent = '準備上傳...';
+            const percentLabel = document.createElement('span');
+            percentLabel.textContent = '0%';
+            meta.appendChild(status);
+            meta.appendChild(percentLabel);
+
+            const shell = document.createElement('div');
+            shell.className = 'progress-shell';
+            const bar = document.createElement('div');
+            bar.className = 'progress-bar';
+            shell.appendChild(bar);
+
+            const right = document.createElement('div');
+            right.style.display = 'flex';
+            right.style.flexDirection = 'column';
+            right.style.alignItems = 'flex-end';
+            right.appendChild(meta);
+            right.appendChild(shell);
+
+            uploadItem.appendChild(info);
+            uploadItem.appendChild(right);
+            fileList.prepend(uploadItem);
+
+            return {
+                update(percent) {
+                    bar.style.width = `${percent}%`;
+                    percentLabel.textContent = `${percent}%`;
+                    status.textContent = '上傳中...';
+                },
+                setStatus(text) {
+                    status.textContent = text;
+                },
+                remove() {
+                    uploadItem.remove();
+                }
+            };
+        }
     </script>
 </body>
 </html>
