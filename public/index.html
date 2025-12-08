@@ -231,10 +231,18 @@
             <h2>我的資訊</h2>
             <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; border-left: 4px solid #28a745;">
                 <div style="margin-bottom: 5px;">
+                    <strong>裝置名稱：</strong>
+                    <span id="myDeviceName">設定中...</span>
+                    <button id="renameDeviceBtn" class="btn btn-secondary" style="padding: 6px 10px; font-size: 12px; margin-left: 8px;">變更</button>
+                </div>
+                <div style="margin-bottom: 5px;">
                     <strong>我的用戶ID：</strong><span id="myUserId">連接中...</span>
                 </div>
                 <div>
                     <strong>連線URL：</strong><span id="connectionUrl">載入中...</span>
+                </div>
+                <div>
+                    <strong>作業系統：</strong><span id="myOsType">讀取中...</span>
                 </div>
             </div>
         </div>
@@ -270,11 +278,23 @@
         const receivedFileList = document.getElementById('receivedFileList');
         const myUserId = document.getElementById('myUserId');
         const connectionUrl = document.getElementById('connectionUrl');
+        const myDeviceNameEl = document.getElementById('myDeviceName');
+        const myOsTypeEl = document.getElementById('myOsType');
+        const renameDeviceBtn = document.getElementById('renameDeviceBtn');
         
         let sentFiles = [];
         let receivedFiles = [];
 
         let myId = null;
+        let myDeviceName = getStoredDeviceName();
+        let myOsType = detectOsType();
+
+        myDeviceNameEl.textContent = myDeviceName;
+        myOsTypeEl.textContent = myOsType;
+
+        socket.on('connect', () => {
+            sendClientIdentity();
+        });
 
         socket.on('clientsUpdate', (data) => {
             const { clients, yourId, serverURL } = data;
@@ -287,6 +307,8 @@
             if (serverURL) {
                 connectionUrl.textContent = serverURL;
             }
+
+            sendClientIdentity();
             
             // 只過濾掉自己
             const otherClients = clients.filter(client => client.id !== myId);
@@ -304,11 +326,13 @@
                     
                     clientCard.innerHTML = `
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <strong>用戶 ${client.id.substring(0, 8)}</strong>
+                            <strong>裝置名稱: ${client.deviceName || '未提供'}</strong>
                             <span class="status online">線上</span>
                         </div>
                         <div style="margin-top: 10px; font-size: 14px; color: #666;">
+                            <div>用戶ID: ${client.id.substring(0, 8)}</div>
                             <div>IP: ${client.ip}</div>
+                            <div>作業系統: ${client.osType || '未知'}</div>
                             <div>連線時間: ${new Date(client.connectTime).toLocaleString('zh-TW')}</div>
                         </div>
                     `;
@@ -677,6 +701,48 @@
                 }
             };
         }
+
+        function detectOsType() {
+            const ua = navigator.userAgent.toLowerCase();
+            if (ua.includes('windows')) return 'Windows';
+            if (ua.includes('mac os x') || ua.includes('macintosh')) return 'macOS';
+            if (ua.includes('android')) return 'Android';
+            if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ipod')) return 'iOS';
+            if (ua.includes('linux')) return 'Linux';
+            return '未知';
+        }
+
+        function sendClientIdentity() {
+            myDeviceNameEl.textContent = myDeviceName;
+            myOsTypeEl.textContent = myOsType;
+            socket.emit('clientInfo', {
+                deviceName: myDeviceName,
+                osType: myOsType
+            });
+        }
+
+        function getStoredDeviceName() {
+            const stored = localStorage.getItem('deviceName');
+            if (stored) return stored;
+            const suggested = '我的裝置';
+            const name = prompt('請輸入您的裝置名稱：', suggested) || suggested;
+            const trimmed = name.trim() || suggested;
+            localStorage.setItem('deviceName', trimmed);
+            return trimmed;
+        }
+
+        function renameDevice() {
+            const name = prompt('請輸入新的裝置名稱：', myDeviceName) || myDeviceName;
+            const trimmed = name.trim() || myDeviceName;
+            myDeviceName = trimmed;
+            localStorage.setItem('deviceName', myDeviceName);
+            sendClientIdentity();
+        }
+
+        renameDeviceBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            renameDevice();
+        });
     </script>
 </body>
 </html>
