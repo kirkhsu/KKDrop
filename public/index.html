@@ -263,6 +263,12 @@
                 <div style="margin-bottom: 5px;">
                     <strong>我的用戶ID：</strong><span id="myUserId">連接中...</span>
                 </div>
+                <div style="margin-bottom: 5px;">
+                    <strong>裝置OS：</strong><span id="myDeviceOs">偵測中...</span>
+                </div>
+                <div style="margin-bottom: 5px;">
+                    <strong>IP：</strong><span id="myIp">偵測中...</span>
+                </div>
                 <div>
                     <strong>連線URL：</strong><span id="connectionUrl">載入中...</span>
                 </div>
@@ -302,11 +308,14 @@
         const connectionUrl = document.getElementById('connectionUrl');
         const deviceNameInput = document.getElementById('deviceNameInput');
         const saveDeviceNameButton = document.getElementById('saveDeviceName');
+        const myDeviceOs = document.getElementById('myDeviceOs');
+        const myIp = document.getElementById('myIp');
         
         let sentFiles = [];
         let receivedFiles = [];
 
         let myId = null;
+        const deviceOS = detectDeviceOS();
 
         function getDeviceDisplayName(client) {
             if (!client) {
@@ -320,10 +329,24 @@
             return clientId ? clientId.substring(0, 8) : '';
         }
 
+        function detectDeviceOS() {
+            const ua = navigator.userAgent || '';
+            if (/Windows NT/i.test(ua)) return 'Windows';
+            if (/Mac OS X/i.test(ua)) return 'macOS';
+            if (/Android/i.test(ua)) return 'Android';
+            if (/iPhone|iPad|iPod/i.test(ua)) return 'iOS';
+            if (/Linux/i.test(ua)) return 'Linux';
+            return 'Unknown';
+        }
+
+        function getDeviceOSLabel(osValue) {
+            return osValue && osValue.trim() ? osValue : '未知';
+        }
+
         function saveDeviceName() {
             const name = deviceNameInput.value.trim();
             localStorage.setItem('deviceName', name);
-            socket.emit('updateDeviceName', name);
+            socket.emit('updateDeviceInfo', { deviceName: name, deviceOS });
             showNotification('裝置名稱已更新');
         }
 
@@ -342,9 +365,7 @@
 
         socket.on('connect', () => {
             const currentName = deviceNameInput.value.trim();
-            if (currentName) {
-                socket.emit('updateDeviceName', currentName);
-            }
+            socket.emit('updateDeviceInfo', { deviceName: currentName, deviceOS });
         });
 
         socket.on('clientsUpdate', (data) => {
@@ -358,6 +379,9 @@
             if (serverURL) {
                 connectionUrl.textContent = serverURL;
             }
+            const selfInfo = clients.find(client => client.id === myId);
+            myDeviceOs.textContent = selfInfo ? getDeviceOSLabel(selfInfo.deviceOS) : '未知';
+            myIp.textContent = selfInfo ? (selfInfo.ip || '未知') : '未知';
             
             // 只過濾掉自己
             const otherClients = clients.filter(client => client.id !== myId);
@@ -386,6 +410,7 @@
                         </div>
                         <div style="margin-top: 10px; font-size: 14px; color: #666;">
                             <div>IP: ${client.ip}</div>
+                            <div>OS: ${getDeviceOSLabel(client.deviceOS)}</div>
                             <div>連線時間: ${new Date(client.connectTime).toLocaleString('zh-TW')}</div>
                         </div>
                     `;

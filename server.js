@@ -81,6 +81,13 @@ function sanitizeDeviceName(name) {
     return name.trim().slice(0, 50);
 }
 
+function sanitizeDeviceOS(osValue) {
+    if (typeof osValue !== 'string') {
+        return '';
+    }
+    return osValue.trim().slice(0, 30);
+}
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(publicDir, 'index.html'));
 });
@@ -147,7 +154,11 @@ io.on('connection', (socket) => {
         clientIP = clientIP.substring(7);
     }
 
-    if(clientIP == "127.0.0.1"){
+    if (clientIP === '::1') {
+        clientIP = '127.0.0.1';
+    }
+
+    if (clientIP === "127.0.0.1") {
         clientIP = localIP;
     }
     
@@ -155,12 +166,25 @@ io.on('connection', (socket) => {
         id: socket.id,
         connectTime: new Date().toISOString(),
         ip: clientIP,
-        deviceName: ''
+        deviceName: '',
+        deviceOS: ''
     };
     
     connectedClients.push(client);
     
     emitClientUpdates(socket, true);
+
+    socket.on('updateDeviceInfo', (payload = {}) => {
+        const sanitizedName = sanitizeDeviceName(payload.deviceName || '');
+        const sanitizedOS = sanitizeDeviceOS(payload.deviceOS || '');
+        connectedClients = connectedClients.map(clientInfo => {
+            if (clientInfo.id === socket.id) {
+                return { ...clientInfo, deviceName: sanitizedName, deviceOS: sanitizedOS };
+            }
+            return clientInfo;
+        });
+        emitClientUpdates(socket, true);
+    });
 
     socket.on('updateDeviceName', (deviceName) => {
         const sanitizedName = sanitizeDeviceName(deviceName);
