@@ -12,43 +12,6 @@ const io = socketIo(server);
 
 const PORT = process.env.PORT || 3000;
 
-function broadcastClients(currentId = null) {
-    const seen = new Set();
-    connectedClients = connectedClients.filter(client => {
-        if (seen.has(client.id)) return false;
-        seen.add(client.id);
-        return true;
-    });
-    if (currentId) {
-        io.to(currentId).emit('clientsUpdate', {
-            clients: connectedClients,
-            yourId: currentId,
-            serverURL: `http://${localIP}:${PORT}`
-        });
-        io.except(currentId).emit('clientsUpdate', {
-            clients: connectedClients,
-            yourId: null,
-            serverURL: `http://${localIP}:${PORT}`
-        });
-    } else {
-        io.emit('clientsUpdate', {
-            clients: connectedClients,
-            yourId: null,
-            serverURL: `http://${localIP}:${PORT}`
-        });
-    }
-}
-
-function parseOsFromUserAgent(ua = '') {
-    const agent = ua.toLowerCase();
-    if (agent.includes('windows')) return 'Windows';
-    if (agent.includes('mac os x') || agent.includes('macintosh')) return 'macOS';
-    if (agent.includes('android')) return 'Android';
-    if (agent.includes('iphone') || agent.includes('ipad') || agent.includes('ipod')) return 'iOS';
-    if (agent.includes('linux')) return 'Linux';
-    return 'Unknown';
-}
-
 // 獲取本機區網IP
 function getLocalIP() {
     const interfaces = os.networkInterfaces();
@@ -158,30 +121,24 @@ io.on('connection', (socket) => {
     if(clientIP == "127.0.0.1"){
         clientIP = localIP;
     }
-    const osType = parseOsFromUserAgent(socket.handshake.headers['user-agent']);
     
     const client = {
         id: socket.id,
         connectTime: new Date().toISOString(),
-        ip: clientIP,
-        deviceName: '未命名裝置',
-        osType
+        ip: clientIP
     };
     
-    connectedClients = connectedClients.filter(c => c.id !== socket.id);
     connectedClients.push(client);
     
-    broadcastClients(socket.id);
-
-    socket.on('clientInfo', (info) => {
-        const idx = connectedClients.findIndex(c => c.id === socket.id);
-        if (idx !== -1) {
-            if (info.deviceName) {
-                connectedClients[idx].deviceName = info.deviceName;
-            }
-            connectedClients[idx].osType = info.osType || connectedClients[idx].osType;
-        }
-        broadcastClients(socket.id);
+    socket.emit('clientsUpdate', {
+        clients: connectedClients,
+        yourId: socket.id,
+        serverURL: `http://${localIP}:${PORT}`
+    });
+    socket.broadcast.emit('clientsUpdate', {
+        clients: connectedClients,
+        yourId: null,
+        serverURL: `http://${localIP}:${PORT}`
     });
     
     socket.on('sendMessage', (data) => {
@@ -201,7 +158,11 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
         connectedClients = connectedClients.filter(client => client.id !== socket.id);
-        broadcastClients();
+        io.emit('clientsUpdate', {
+            clients: connectedClients,
+            yourId: null,
+            serverURL: `http://${localIP}:${PORT}`
+        });
     });
 });
 
