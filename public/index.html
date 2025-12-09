@@ -221,6 +221,31 @@
             font-size: 12px;
             color: #555;
         }
+        .device-name-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        .device-name-input {
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            min-width: 220px;
+        }
+        .device-name-save {
+            padding: 6px 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .device-name-save:hover {
+            background: #0056b3;
+        }
     </style>
 </head>
 <body>
@@ -230,6 +255,11 @@
         <div class="section">
             <h2>我的資訊</h2>
             <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; border-left: 4px solid #28a745;">
+                <div class="device-name-row">
+                    <strong>裝置名稱：</strong>
+                    <input id="deviceNameInput" class="device-name-input" type="text" placeholder="請輸入裝置名稱">
+                    <button id="saveDeviceName" class="device-name-save">儲存</button>
+                </div>
                 <div style="margin-bottom: 5px;">
                     <strong>我的用戶ID：</strong><span id="myUserId">連接中...</span>
                 </div>
@@ -270,11 +300,52 @@
         const receivedFileList = document.getElementById('receivedFileList');
         const myUserId = document.getElementById('myUserId');
         const connectionUrl = document.getElementById('connectionUrl');
+        const deviceNameInput = document.getElementById('deviceNameInput');
+        const saveDeviceNameButton = document.getElementById('saveDeviceName');
         
         let sentFiles = [];
         let receivedFiles = [];
 
         let myId = null;
+
+        function getDeviceDisplayName(client) {
+            if (!client) {
+                return '未命名裝置';
+            }
+            const name = (client.deviceName || '').trim();
+            return name || '未命名裝置';
+        }
+
+        function getShortId(clientId) {
+            return clientId ? clientId.substring(0, 8) : '';
+        }
+
+        function saveDeviceName() {
+            const name = deviceNameInput.value.trim();
+            localStorage.setItem('deviceName', name);
+            socket.emit('updateDeviceName', name);
+            showNotification('裝置名稱已更新');
+        }
+
+        const storedDeviceName = localStorage.getItem('deviceName') || '';
+        if (storedDeviceName) {
+            deviceNameInput.value = storedDeviceName;
+        }
+
+        saveDeviceNameButton.addEventListener('click', saveDeviceName);
+        deviceNameInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                saveDeviceName();
+            }
+        });
+
+        socket.on('connect', () => {
+            const currentName = deviceNameInput.value.trim();
+            if (currentName) {
+                socket.emit('updateDeviceName', currentName);
+            }
+        });
 
         socket.on('clientsUpdate', (data) => {
             const { clients, yourId, serverURL } = data;
@@ -282,7 +353,7 @@
             // 更新我的用戶ID和連線URL顯示
             if (yourId) {
                 myId = yourId;
-                myUserId.textContent = `用戶 ${yourId.substring(0, 8)}`;
+                myUserId.textContent = getShortId(yourId);
             }
             if (serverURL) {
                 connectionUrl.textContent = serverURL;
@@ -300,11 +371,17 @@
                     const clientCard = document.createElement('div');
                     clientCard.className = 'client-card';
                     clientCard.dataset.clientId = client.id;
+                    const shortId = getShortId(client.id);
+                    const deviceLabel = getDeviceDisplayName(client);
+                    const clientDisplayName = deviceLabel === '未命名裝置' ? `用戶ID: ${shortId}` : `${deviceLabel} (用戶ID: ${shortId})`;
                     
                     
                     clientCard.innerHTML = `
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <strong>用戶 ${client.id.substring(0, 8)}</strong>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div>
+                                <div style="font-weight: bold;">${deviceLabel}</div>
+                                <div style="font-size: 12px; color: #555;">用戶ID: ${shortId}</div>
+                            </div>
                             <span class="status online">線上</span>
                         </div>
                         <div style="margin-top: 10px; font-size: 14px; color: #666;">
@@ -315,12 +392,12 @@
                     
                     clientCard.addEventListener('click', (e) => {
                         e.preventDefault();
-                        openFileDialog(client.id, client.id.substring(0, 8));
+                        openFileDialog(client.id, clientDisplayName);
                     });
                     
                     clientCard.addEventListener('contextmenu', (e) => {
                         e.preventDefault();
-                        openTextDialog(client.id, client.id.substring(0, 8));
+                        openTextDialog(client.id, clientDisplayName);
                     });
                     
                     clientsList.appendChild(clientCard);
@@ -441,7 +518,7 @@
         }
 
         function openTextDialog(clientId, clientName) {
-            const message = prompt(`傳送訊息給用戶 ${clientName}:`);
+            const message = prompt(`傳送訊息給 ${clientName}:`);
             if (message && message.trim()) {
                 sendTextToUser(message.trim(), clientId, clientName);
             }
@@ -500,7 +577,7 @@
                 fromClient: socket.id
             });
             
-            showNotification(`訊息已傳送給用戶 ${targetClientName}`);
+            showNotification(`訊息已傳送給 ${targetClientName}`);
         }
 
         function showMessageDialog(message, fromUser) {

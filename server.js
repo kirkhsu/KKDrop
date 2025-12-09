@@ -27,6 +27,7 @@ function getLocalIP() {
 }
 
 const localIP = getLocalIP();
+const serverURL = `http://${localIP}:${PORT}`;
 
 // 確定上傳目錄路徑 - 在 pkg 打包環境中使用執行目錄
 const uploadsDir = path.join(process.cwd(), 'uploads');
@@ -51,6 +52,34 @@ const publicDir = path.join(__dirname, 'public');
 app.use(express.static(publicDir));
 
 let connectedClients = [];
+
+function emitClientUpdates(socket, includeSelfId = false) {
+    if (socket) {
+        socket.emit('clientsUpdate', {
+            clients: connectedClients,
+            yourId: includeSelfId ? socket.id : null,
+            serverURL
+        });
+        socket.broadcast.emit('clientsUpdate', {
+            clients: connectedClients,
+            yourId: null,
+            serverURL
+        });
+    } else {
+        io.emit('clientsUpdate', {
+            clients: connectedClients,
+            yourId: null,
+            serverURL
+        });
+    }
+}
+
+function sanitizeDeviceName(name) {
+    if (typeof name !== 'string') {
+        return '';
+    }
+    return name.trim().slice(0, 50);
+}
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(publicDir, 'index.html'));
@@ -125,20 +154,23 @@ io.on('connection', (socket) => {
     const client = {
         id: socket.id,
         connectTime: new Date().toISOString(),
-        ip: clientIP
+        ip: clientIP,
+        deviceName: ''
     };
     
     connectedClients.push(client);
     
-    socket.emit('clientsUpdate', {
-        clients: connectedClients,
-        yourId: socket.id,
-        serverURL: `http://${localIP}:${PORT}`
-    });
-    socket.broadcast.emit('clientsUpdate', {
-        clients: connectedClients,
-        yourId: null,
-        serverURL: `http://${localIP}:${PORT}`
+    emitClientUpdates(socket, true);
+
+    socket.on('updateDeviceName', (deviceName) => {
+        const sanitizedName = sanitizeDeviceName(deviceName);
+        connectedClients = connectedClients.map(clientInfo => {
+            if (clientInfo.id === socket.id) {
+                return { ...clientInfo, deviceName: sanitizedName };
+            }
+            return clientInfo;
+        });
+        emitClientUpdates(socket, true);
     });
     
     socket.on('sendMessage', (data) => {
@@ -158,11 +190,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
         connectedClients = connectedClients.filter(client => client.id !== socket.id);
-        io.emit('clientsUpdate', {
-            clients: connectedClients,
-            yourId: null,
-            serverURL: `http://${localIP}:${PORT}`
-        });
+        emitClientUpdates();
     });
 });
 
