@@ -36,12 +36,27 @@ if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+function normalizeOriginalName(originalname) {
+    if (typeof originalname !== 'string') {
+        return 'file';
+    }
+    const hasNonLatin1 = [...originalname].some(char => char.charCodeAt(0) > 255);
+    if (hasNonLatin1) {
+        return originalname;
+    }
+    const decoded = Buffer.from(originalname, 'latin1').toString('utf8');
+    if (decoded.includes('\uFFFD')) {
+        return originalname;
+    }
+    return decoded;
+}
+
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, uploadsDir);
     },
     filename: function (req, file, cb) {
-        cb(null, file.originalname);
+        cb(null, normalizeOriginalName(file.originalname));
     }
 });
 
@@ -128,9 +143,11 @@ app.post('/upload', upload.single('file'), (req, res) => {
         return res.status(400).json({ error: 'No target client specified' });
     }
     
+    const normalizedOriginalName = normalizeOriginalName(req.file.originalname);
+    const normalizedStoredName = normalizeOriginalName(req.file.filename);
     const fileInfo = {
-        filename: req.file.filename,
-        originalname: req.file.originalname,
+        filename: normalizedStoredName,
+        originalname: normalizedOriginalName,
         size: req.file.size,
         uploadTime: new Date().toISOString(),
         from: req.body.fromClient || 'unknown',

@@ -514,7 +514,7 @@
 
         function downloadFile(filename, originalname) {
             const link = document.createElement('a');
-            link.href = `/download/${filename}`;
+            link.href = `/download/${encodeURIComponent(filename)}`;
             link.download = originalname;
             link.style.display = 'none';
             document.body.appendChild(link);
