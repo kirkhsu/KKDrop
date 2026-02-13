@@ -35,6 +35,11 @@ const uploadsDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
+const uploadEntries = fs.readdirSync(uploadsDir);
+for (const entry of uploadEntries) {
+    const entryPath = path.join(uploadsDir, entry);
+    fs.rmSync(entryPath, { recursive: true, force: true });
+}
 
 function normalizeOriginalName(originalname) {
     if (typeof originalname !== 'string') {
