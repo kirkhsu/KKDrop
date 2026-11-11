@@ -29,8 +29,20 @@ function getLocalIP() {
 const localIP = getLocalIP();
 const serverURL = `http://${localIP}:${PORT}`;
 
-// 確定上傳目錄路徑 - 在 pkg 打包環境中使用執行目錄
-const uploadsDir = path.join(process.cwd(), 'uploads');
+// 確定上傳目錄路徑
+// 一般開發模式沿用執行目錄下的 uploads/；打包後的執行檔（尤其開機自動啟動）
+// 的工作目錄不可預期也可能不可寫，改用使用者家目錄下的固定資料夾。
+function getUploadsDir() {
+    if (!process.pkg) {
+        return path.join(process.cwd(), 'uploads');
+    }
+    if (process.platform === 'win32') {
+        return path.join(process.env.APPDATA || os.homedir(), 'KKDrop', 'uploads');
+    }
+    return path.join(os.homedir(), '.local', 'share', 'kkdrop', 'uploads');
+}
+
+const uploadsDir = getUploadsDir();
 
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
@@ -126,10 +138,13 @@ app.get('/download/:filename', (req, res) => {
     console.log(`File exists: ${fs.existsSync(filePath)}`);
     
     if (fs.existsSync(filePath)) {
-        res.download(filePath, filename, (err) => {
+        // 用 root 選項讓 send 只針對檔名本身做 dotfile 檢查；uploadsDir 在打包版
+        // 位於使用者家目錄下（例如 ~/.local/share/kkdrop/uploads），路徑中的
+        // ".local" 若把整個絕對路徑丟給 res.download 會被誤判成 dotfile 而回應失敗。
+        res.download(filename, filename, { root: uploadsDir }, (err) => {
             if (err) {
                 console.error('Download error:', err);
-                res.status(500).json({ error: 'Download failed' });
+                res.status(err.status || 500).json({ error: 'Download failed' });
             }
         });
     } else {
@@ -240,6 +255,12 @@ io.on('connection', (socket) => {
     });
 });
 
+function shutdown() {
+    io.close();
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 2000).unref();
+}
+
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Local access: http://localhost:${PORT}`);
@@ -248,4 +269,6 @@ server.listen(PORT, () => {
     console.log(`Public directory: ${publicDir}`);
     console.log(`Current working directory: ${process.cwd()}`);
     console.log(`__dirname: ${__dirname}`);
+
+    require('./tray').initTray(serverURL, shutdown);
 });

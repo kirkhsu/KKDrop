@@ -1,32 +1,50 @@
 {
   "name": "KKDrop",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Snapdrop-like LAN file and message sharing server built with Express and Socket.IO, with a system tray app and Ubuntu/Windows installers.",
+  "main": "server.js",
   "scripts": {
+    "postinstall": "node scripts/fix-tray-permissions.js",
     "start": "node server.js",
     "dev": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build_all": "pkg server.js -c package.json",
-    "build_win": "pkg server.js -t node*-win-x64 -c package.json"
+    "build_win": "pkg server.js -t node*-win-x64 -c package.json",
+    "build_deb": "bash scripts/build-deb.sh",
+    "build_win_installer": "bash scripts/build-win-installer.sh"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "file-sharing",
+    "lan",
+    "socket.io",
+    "express",
+    "snapdrop",
+    "tray"
+  ],
+  "author": "Kirk Hsu",
   "license": "ISC",
   "dependencies": {
     "express": "^5.1.0",
     "multer": "^2.0.2",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "systray2": "^2.1.4"
   },
   "pkg": {
     "assets": [
       "public/**/*",
-      "node_modules/socket.io/client-dist/*"
+      "assets/**/*",
+      "node_modules/socket.io/client-dist/*",
+      "node_modules/systray2/traybin/*"
     ],
     "targets": [
-      "node*-linux-x64", "node*-win-x64", "node*-macos-x64"
+      "node*-linux-x64",
+      "node*-win-x64",
+      "node*-macos-x64"
     ],
     "outputPath": "dist"
   },
-  "bin": "server.js"
+  "bin": "server.js",
+  "devDependencies": {
+    "@yao-pkg/pkg": "^6.25.0"
+  }
 }

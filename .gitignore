@@ -1,7 +1,26 @@
-node_modules
-build
-npm-debug.log
+# Dependencies
+node_modules/
+
+# Build output (pkg / .deb / Windows installer)
+build/
+dist/
+
+# Runtime upload storage (dev mode)
+uploads/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment / secrets
 .env
+.env.*
+
+# Local tool and editor settings
+.claude/settings.local.json
+.vscode/
+.idea/
+
+# OS files
 .DS_Store
-dist
-uploads
+Thumbs.db

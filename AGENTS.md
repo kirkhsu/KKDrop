@@ -1,14 +1,19 @@
 # Repository Guidelines
 
 ## 專案結構與模組
-- `server.js`：Express + Socket.IO 後端，維護用戶列表、上傳/下載與訊息轉送。上傳檔案落在執行期建立的 `uploads/`（請勿提交）。  
+- `server.js`：Express + Socket.IO 後端，維護用戶列表、上傳/下載與訊息轉送。上傳檔案在開發模式落在執行期建立的 `uploads/`（請勿提交）；打包執行檔則落在使用者家目錄下（見 `getUploadsDir()`）。  
+- `tray.js`：System tray 圖示（只有 Exit 選單），只在 `process.pkg` 存在（即 pkg 打包後的執行檔）時啟用，`npm start`/`npm run dev` 不受影響。  
+- `assets/`：tray 與安裝程式用的圖示（`icon.svg` 原始檔、`icon.png`、`icon.ico`）。  
 - `public/`：前端資源；`index.html` 含 UI、樣式與客戶端邏輯。  
-- `dist/`：pkg 打包輸出（可選）。  
+- `debian/`、`installer/`、`scripts/`：Ubuntu `.deb` 與 Windows 安裝程式的打包素材與建置腳本。  
+- `dist/`：`pkg` / `.deb` / installer 打包輸出（不進版控）。  
 - 根目錄：`package.json`、`package-lock.json`、`README.md`。
 
 ## 建置、測試與開發指令
-- `npm start` / `npm run dev`：啟動本機伺服器（預設 3000），提供靜態檔與 Socket.IO 事件。  
-- `npm test`：目前為占位，會回傳錯誤；加入實際測試後再啟用。
+- `npm start` / `npm run dev`：啟動本機伺服器（預設 3000），提供靜態檔與 Socket.IO 事件；不會顯示 tray 圖示。  
+- `npm test`：目前為占位，會回傳錯誤；加入實際測試後再啟用。  
+- `npm run build_deb`：打包 Ubuntu `.deb`（`scripts/build-deb.sh`），安裝後以 XDG autostart 開機自動啟動並常駐 tray。  
+- `npm run build_win_installer`：打包 Windows 安裝程式（`scripts/build-win-installer.sh` + `installer/kkdrop.nsi`），需要環境已安裝 NSIS（`makensis`）。
 
 ## 程式風格與命名慣例
 - JavaScript/HTML/CSS 採 2 空格縮排。  

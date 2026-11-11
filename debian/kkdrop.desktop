@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=KKDrop
+Comment=Local network file drop server with a system tray icon
+Exec=/usr/bin/kkdrop
+Icon=kkdrop
+Terminal=false
+Categories=Network;FileTransfer;
+X-GNOME-Autostart-enabled=true
