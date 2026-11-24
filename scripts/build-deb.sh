@@ -22,7 +22,7 @@ mkdir -p \
     "$STAGE_DIR/usr/share/icons/hicolor/256x256/apps"
 
 echo "==> Building Linux binary with pkg"
-npx pkg server.js -t node18-linux-x64 -c package.json -o "$STAGE_DIR/usr/bin/kkdrop"
+npx pkg server.js -t node*-linux-x64 -c package.json -o "$STAGE_DIR/usr/bin/kkdrop"
 
 echo "==> Staging desktop files and icon"
 cp debian/kkdrop.desktop "$STAGE_DIR/usr/share/applications/kkdrop.desktop"

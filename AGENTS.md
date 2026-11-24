@@ -13,7 +13,7 @@
 - `npm start` / `npm run dev`：啟動本機伺服器（預設 3000），提供靜態檔與 Socket.IO 事件；不會顯示 tray 圖示。  
 - `npm test`：目前為占位，會回傳錯誤；加入實際測試後再啟用。  
 - `npm run build_deb`：打包 Ubuntu `.deb`（`scripts/build-deb.sh`），安裝後以 XDG autostart 開機自動啟動並常駐 tray。  
-- `npm run build_win_installer`：打包 Windows 安裝程式（`scripts/build-win-installer.sh` + `installer/kkdrop.nsi`），需要環境已安裝 NSIS（`makensis`）。
+- `npm run build_win_installer`：打包 Windows 安裝程式（`scripts/build-win-installer.js` + `installer/kkdrop.nsi`），需要環境已安裝 NSIS（`makensis`）。
 
 ## 程式風格與命名慣例
 - JavaScript/HTML/CSS 採 2 空格縮排。  

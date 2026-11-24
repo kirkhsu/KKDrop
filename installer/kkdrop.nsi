@@ -1,6 +1,6 @@
 ; KKDrop Windows installer
 ; Built with: makensis -DAPP_VERSION=<ver> -DAPP_EXE=<path\to\KKDrop.exe> -DAPP_ICON=<path\to\icon.ico> -DOUT_FILE=<output.exe> installer/kkdrop.nsi
-; (see scripts/build-win-installer.sh, which supplies these defines automatically)
+; (see scripts/build-win-installer.js, which supplies these defines automatically)
 
 !ifndef APP_VERSION
   !define APP_VERSION "0.0.0"
@@ -58,7 +58,7 @@ Section "KKDrop" SEC_APP
   CreateShortCut "$SMPROGRAMS\${APP_NAME}\KKDrop.lnk" "$INSTDIR\KKDrop.exe" "" "$INSTDIR\icon.ico"
   CreateShortCut "$SMPROGRAMS\${APP_NAME}\Uninstall KKDrop.lnk" "$INSTDIR\Uninstall.exe"
 
-  ; Autostart on login (all users) — mirrors the Linux package's XDG autostart entry
+  ; Autostart on login (all users) - mirrors the Linux package's XDG autostart entry
   CreateShortCut "$SMSTARTUP\KKDrop.lnk" "$INSTDIR\KKDrop.exe" "" "$INSTDIR\icon.ico"
 
   WriteUninstaller "$INSTDIR\Uninstall.exe"
